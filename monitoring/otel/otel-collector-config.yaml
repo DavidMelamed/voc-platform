@@ -1,0 +1,123 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['0.0.0.0:8889']
+            
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+      disk:
+      load:
+      filesystem:
+      memory:
+      network:
+      paging:
+      process:
+      
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14250
+      thrift_http:
+        endpoint: 0.0.0.0:14268
+        
+  zipkin:
+    endpoint: 0.0.0.0:9411
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+    
+  resource:
+    attributes:
+      - key: service.namespace
+        value: voc-platform
+        action: upsert
+        
+  filter:
+    metrics:
+      include:
+        match_type: strict
+        metric_names:
+          - system.cpu.time
+          - system.memory.usage
+          - process.cpu.time
+          - process.memory.usage
+          - http.server.duration
+
+exporters:
+  logging:
+    verbosity: detailed
+    
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: voc_platform
+    send_timestamps: true
+    metric_expiration: 180m
+    
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+      
+  otlphttp:
+    endpoint: "https://api.honeycomb.io"
+    headers:
+      "x-honeycomb-team": "${env:HONEYCOMB_API_KEY}"
+      "x-honeycomb-dataset": "${env:HONEYCOMB_DATASET}"
+
+  file:
+    path: /var/log/otel-collector.log
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp, jaeger, zipkin]
+      processors: [batch, memory_limiter, resource]
+      exporters: [logging, jaeger]
+      
+    metrics:
+      receivers: [otlp, prometheus, hostmetrics]
+      processors: [batch, memory_limiter, resource, filter]
+      exporters: [logging, prometheus]
+      
+    logs:
+      receivers: [otlp]
+      processors: [batch, memory_limiter, resource]
+      exporters: [logging, file]
+      
+  extensions: [health_check, pprof, zpages]
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      level: "detailed"
+      address: 0.0.0.0:8888
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+    
+  pprof:
+    endpoint: 0.0.0.0:1888
+    
+  zpages:
+    endpoint: 0.0.0.0:55679

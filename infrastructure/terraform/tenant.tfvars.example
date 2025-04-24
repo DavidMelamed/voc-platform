@@ -1,0 +1,13 @@
+# Example Terraform variables for tenant configuration
+# Rename this file to tenant.tfvars and fill in your values
+
+# Required
+astra_token = "AstraCS:your-astra-token"
+tenant_id   = "your-tenant-id"
+tenant_name = "Your Company Name"
+
+# Optional - defaults shown below
+cloud_provider = "gcp"  # aws, gcp, or azure
+region         = "us-east1"
+keyspace       = "voc_platform"
+db_tier        = "serverless"

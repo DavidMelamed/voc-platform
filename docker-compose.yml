@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  # Frontend UI
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: voc-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - mcp-server
+    networks:
+      - voc-network
+    restart: unless-stopped
+
+  # MCP Server
+  mcp-server:
+    build:
+      context: ./mcp_server
+      dockerfile: Dockerfile
+    container_name: voc-mcp-server
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - LOG_LEVEL=info
+    volumes:
+      - ./mcp_server:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - voc-network
+    restart: unless-stopped
+
+  # Coordinator Agent
+  coordinator-agent:
+    build:
+      context: ./agents/coordinator
+      dockerfile: Dockerfile
+    container_name: voc-coordinator-agent
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MCP_SERVER_URL=http://mcp-server:3000
+      - COORDINATOR_STOP_ON_UNKNOWN_DOMAINS=true
+      - COORDINATOR_BUDGET_CAP_USD=100
+      - ASTRA_STREAMING_TENANT=${ASTRA_STREAMING_TENANT}
+      - ASTRA_STREAMING_NAMESPACE=${ASTRA_STREAMING_NAMESPACE}
+      - ASTRA_STREAMING_TOKEN=${ASTRA_STREAMING_TOKEN}
+      - TENANT_ID=${TENANT_ID}
+      - TENANT_NAME=${TENANT_NAME}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./agents/coordinator/src:/app/src
+    networks:
+      - voc-network
+    restart: unless-stopped
+
+  # Scraper Agent
+  scraper-agent:
+    build:
+      context: ./agents/scraper
+      dockerfile: Dockerfile
+    container_name: voc-scraper-agent
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MCP_SERVER_URL=http://mcp-server:3000
+      - ASTRA_STREAMING_TENANT=${ASTRA_STREAMING_TENANT}
+      - ASTRA_STREAMING_NAMESPACE=${ASTRA_STREAMING_NAMESPACE}
+      - ASTRA_STREAMING_TOKEN=${ASTRA_STREAMING_TOKEN}
+      - TENANT_ID=${TENANT_ID}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PLAYWRIGHT_BROWSER_TYPE=chromium
+      - PLAYWRIGHT_HEADLESS=true
+      - DATAFORSEO_DEFAULT_LOCATION=United States
+      - DATAFORSEO_DEFAULT_LANGUAGE=en
+    volumes:
+      - ./agents/scraper/src:/app/src
+    networks:
+      - voc-network
+    restart: unless-stopped
+
+  # Tagger Agent
+  tagger-agent:
+    build:
+      context: ./agents/tagger
+      dockerfile: Dockerfile
+    container_name: voc-tagger-agent
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MCP_SERVER_URL=http://mcp-server:3000
+      - ASTRA_STREAMING_TENANT=${ASTRA_STREAMING_TENANT}
+      - ASTRA_STREAMING_NAMESPACE=${ASTRA_STREAMING_NAMESPACE}
+      - ASTRA_STREAMING_TOKEN=${ASTRA_STREAMING_TOKEN}
+      - ASTRA_API_ENDPOINT=${ASTRA_API_ENDPOINT}
+      - ASTRA_TOKEN=${ASTRA_TOKEN}
+      - ASTRA_KEYSPACE=${ASTRA_KEYSPACE}
+      - TENANT_ID=${TENANT_ID}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMBEDDING_DIMENSIONS=1536
+      - SENTIMENT_THRESHOLD=0.5
+      - URGENCY_THRESHOLD=0.7
+    volumes:
+      - ./agents/tagger/src:/app/src
+    networks:
+      - voc-network
+    restart: unless-stopped
+
+  # Data Science Agent (Jupyter)
+  datascience-agent:
+    image: jupyter/datascience-notebook:python-3.11
+    container_name: voc-datascience-agent
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - GRANT_SUDO=yes
+    env_file:
+      - .env
+    volumes:
+      - ./agents/datascience:/home/jovyan/work
+    user: root
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
+    networks:
+      - voc-network
+    restart: unless-stopped
+
+networks:
+  voc-network:
+    driver: bridge
