@@ -141,10 +141,34 @@ class PlaywrightScraper(Scraper):
             
             # Extract links if requested
             links = []
-            if extract_links and html_content:
-                # In a real implementation, we would parse the HTML and extract links
-                # For this example, we'll just return a placeholder
-                links = ["https://example.com/link1", "https://example.com/link2"]
+            if extract_links and html_content.get("html", ""):
+                # Extract all links from the page
+                extract_links_result = await self._call_mcp_tool("playwright_eval", {
+                    "expression": "Array.from(document.querySelectorAll('a')).map(a => {"
+                        + "return {href: a.href, text: a.textContent.trim(), title: a.title || null, "
+                        + "target: a.target || null, rel: a.rel || null, isExternal: a.hostname !== window.location.hostname};})"
+                })
+                
+                # Process the extracted links
+                if extract_links_result and "result" in extract_links_result:
+                    raw_links = extract_links_result["result"]
+                    base_domain = urlparse(url).netloc
+                    
+                    for link in raw_links:
+                        if link.get("href"):
+                            # Add the link to the list
+                            links.append({
+                                "url": link["href"],
+                                "text": link.get("text", ""),
+                                "title": link.get("title"),
+                                "is_external": link.get("isExternal", False),
+                                "meta": {
+                                    "target": link.get("target"),
+                                    "rel": link.get("rel")
+                                }
+                            })
+                
+                logger.info(f"Extracted {len(links)} links from {url}")
                 
             # Close the browser
             await self._call_mcp_tool("playwright_close", {})

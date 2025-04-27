@@ -1,129 +1,68 @@
 """
-Pulsar client for the Tagger Agent.
+Real Pulsar client for the Tagger Agent.
 
-This module provides a client for interacting with Astra Streaming (Pulsar)
-for the Tagger Agent.
+This module imports the real Pulsar client implementation from the common module.
 """
 
+import sys
 import os
 import json
 import asyncio
-from datetime import datetime
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Callable
 
-# This is a simplified version of the same client used in the other agents
-# In a real implementation, this would be a shared library
+# Add the common module to the path
+common_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'common')
+sys.path.append(common_path)
 
-class PulsarClient:
-    """Client for interacting with Astra Streaming (Pulsar)."""
+# Import the real Pulsar client implementation
+try:
+    from pulsar_client import PulsarClient as RealPulsarClient
     
-    def __init__(self):
-        """Initialize the Pulsar client with environment variables."""
-        self.tenant = os.getenv("ASTRA_STREAMING_TENANT", "default")
-        self.namespace = os.getenv("ASTRA_STREAMING_NAMESPACE", "voc_platform")
-        self.token = os.getenv("ASTRA_STREAMING_TOKEN", "")
-        self.broker_url = f"pulsar+ssl://{self.tenant}.streaming.datastax.com:6651"
+    # Use the real implementation
+    PulsarClient = RealPulsarClient
+    print("Using real Pulsar client implementation from common module")
+except ImportError as e:
+    print(f"Warning: Failed to import real Pulsar client: {str(e)}")
+    # If the import fails, provide a minimal implementation that logs the failure
+    class PulsarClient:
+        """Fallback Pulsar client that logs errors."""
         
-        # Mock message storage for demo purposes
-        self.topics = {
-            "scrape.jobs": [],
-            "scrape.results": [],
-            "tag.complete": [],
-            "analysis.jobs": [],
-            "analysis.done": []
-        }
+        def __init__(self):
+            """Initialize with a warning about the missing real implementation."""
+            print("ERROR: Using fallback Pulsar client - no real functionality available!")
+            print("Please ensure the common/pulsar_client.py module is available")
+            self.tenant = os.getenv("ASTRA_STREAMING_TENANT", "default")
         
-        print(f"Initialized Pulsar client for tenant {self.tenant}")
-    
-    async def connect(self):
-        """Connect to Astra Streaming."""
-        # In a real implementation, this would establish a connection
-        print(f"Connected to Astra Streaming at {self.broker_url}")
-        return True
-        
-    async def close(self):
-        """Close the connection to Astra Streaming."""
-        # In a real implementation, this would close connections
-        print("Closed Pulsar client connection")
-        return True
-        
-    async def create_producer(self, topic: str):
-        """Create a producer for a topic."""
-        # In a real implementation, this would create a Pulsar producer
-        full_topic = f"persistent://{self.tenant}/{self.namespace}/{topic}"
-        print(f"Created producer for topic {full_topic}")
-        return {"topic": full_topic}
-        
-    async def create_consumer(self, topic: str, subscription_name: str):
-        """Create a consumer for a topic."""
-        # In a real implementation, this would create a Pulsar consumer
-        full_topic = f"persistent://{self.tenant}/{self.namespace}/{topic}"
-        print(f"Created consumer for topic {full_topic} with subscription {subscription_name}")
-        return {"topic": full_topic, "subscription": subscription_name}
-        
-    async def send_message(self, topic: str, content: Union[str, bytes], properties: Dict = None):
-        """Send a message to a topic."""
-        # In a real implementation, this would use a Pulsar producer
-        if isinstance(content, str):
-            content = content.encode('utf-8')
+        async def connect(self):
+            print("ERROR: Cannot connect with fallback Pulsar client")
+            return False
             
-        # Mock implementation - store message in our topic storage
-        message = {
-            "content": content,
-            "properties": properties or {},
-            "timestamp": datetime.now().isoformat(),
-            "message_id": f"mock-msg-{len(self.topics[topic])}"
-        }
+        async def close(self):
+            print("ERROR: No real connection to close")
+            return False
         
-        self.topics[topic].append(message)
+        async def create_producer(self, topic):
+            print(f"ERROR: Cannot create producer for topic {topic} - no real implementation")
+            return None
         
-        full_topic = f"persistent://{self.tenant}/{self.namespace}/{topic}"
-        print(f"Sent message to topic {full_topic}")
+        async def create_consumer(self, topic, subscription_name):
+            print(f"ERROR: Cannot create consumer for topic {topic} - no real implementation")
+            return None
         
-        return message["message_id"]
+        async def send_message(self, topic, content, properties=None):
+            print(f"ERROR: Cannot send message to topic {topic} - no real implementation")
+            return None
         
-    async def receive_message(self, topic: str, timeout_ms: int = 5000):
-        """Receive a message from a topic."""
-        # In a real implementation, this would use a Pulsar consumer
-        
-        # Mock implementation - get first message from topic if available
-        if self.topics[topic]:
-            message = self.topics[topic][0]
+        async def receive_message(self, topic, subscription_name, timeout_ms=5000):
+            print(f"ERROR: Cannot receive message from topic {topic} - no real implementation")
+            return None
             
-            # Create a mock message object
-            class MockMessage:
-                def __init__(self, data, msg_id, properties):
-                    self._data = data
-                    self._msg_id = msg_id
-                    self._properties = properties
-                
-                def data(self):
-                    return self._data
-                    
-                def message_id(self):
-                    return self._msg_id
-                    
-                def properties(self):
-                    return self._properties
-            
-            return MockMessage(
-                message["content"],
-                message["message_id"],
-                message["properties"]
-            )
+        async def acknowledge_message(self, topic, subscription_name, message):
+            print(f"ERROR: Cannot acknowledge message - no real implementation")
+            return False
         
-        return None
+        async def subscribe_and_process(self, topic, subscription_name, callback, ack_messages=True, poll_interval=1.0):
+            print(f"ERROR: Cannot subscribe to topic {topic} - no real implementation")
+            return None
         
-    async def acknowledge(self, message):
-        """Acknowledge a message."""
-        # In a real implementation, this would acknowledge the message
-        
-        # Mock implementation - remove message from our topic storage
-        for topic, messages in self.topics.items():
-            for i, msg in enumerate(messages):
-                if msg["message_id"] == message.message_id():
-                    self.topics[topic].pop(i)
-                    print(f"Acknowledged message {message.message_id()}")
-                    return True
-        
-        return False
+

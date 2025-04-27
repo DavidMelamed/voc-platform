@@ -19,10 +19,13 @@ class PulsarClient:
     def __init__(self):
         """Initialize the Pulsar client with environment variables."""
         self.tenant = os.getenv("ASTRA_STREAMING_TENANT", "default")
-        self.namespace = os.getenv("ASTRA_STREAMING_NAMESPACE", "voc_platform")
+        self.namespace = os.getenv("ASTRA_STREAMING_NAMESPACE", "default") # Use 'default' as confirmed
         self.token = os.getenv("ASTRA_STREAMING_TOKEN", "")
-        self.broker_url = f"pulsar+ssl://{self.tenant}.streaming.datastax.com:6651"
-        
+        self.broker_url = os.getenv("ASTRA_STREAMING_BROKER_URL", "") # Use the full URL from .env
+        if not self.broker_url:
+             print("ERROR: ASTRA_STREAMING_BROKER_URL not set in environment!")
+             # Fallback or raise an error might be needed here in a real scenario
+
         # Mock message storage for demo purposes
         self.topics = {
             "scrape.jobs": [],

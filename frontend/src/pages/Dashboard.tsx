@@ -98,93 +98,23 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       
-      // For demo purposes, populate with mock data if the API fails
-      setMockData();
+      // Handle the error by setting error states rather than using mock data
+      setStats(null);
+      setSentimentData([]);
+      setTimelineData([]);
+      setTopTopics([]);
+      setActiveTasks([]);
+      
+      // Display error alert to the user through the UI
+      // This could be replaced with a proper error notification system
+      alert('Error loading dashboard data. Please check your connection and try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const setMockData = () => {
-    // Stats
-    setStats({
-      documents_total: 4532,
-      documents_today: 124,
-      sources_active: 12,
-      insights_total: 87,
-      insights_today: 7,
-      positive_sentiment: 45,
-      negative_sentiment: 15,
-      neutral_sentiment: 40,
-      urgent_count: 8
-    });
-
-    // Sentiment data
-    setSentimentData([
-      { id: 'Positive', value: 45, color: '#4caf50' },
-      { id: 'Negative', value: 15, color: '#f44336' },
-      { id: 'Neutral', value: 40, color: '#9e9e9e' }
-    ]);
-
-    // Timeline data - 30 days
-    const timelinePoints = [];
-    const today = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(today.getDate() - i);
-      
-      // Generate some random values
-      timelinePoints.push({
-        x: format(date, 'MMM dd'),
-        y: Math.floor(Math.random() * 40) + 10 // Random between 10-50
-      });
-    }
-
-    setTimelineData([
-      {
-        id: 'Documents',
-        data: timelinePoints
-      }
-    ]);
-
-    // Top topics
-    setTopTopics([
-      { topic: 'Customer Service', count: 245, sentiment: 'negative' },
-      { topic: 'Product Quality', count: 187, sentiment: 'positive' },
-      { topic: 'Shipping', count: 156, sentiment: 'negative' },
-      { topic: 'Price', count: 132, sentiment: 'neutral' },
-      { topic: 'App Experience', count: 98, sentiment: 'positive' }
-    ]);
-
-    // Active tasks
-    setActiveTasks([
-      { 
-        id: 'task-1', 
-        task_type: 'Website Scrape', 
-        source: 'company-website.com', 
-        status: 'In Progress', 
-        progress: 45, 
-        eta: '4 minutes' 
-      },
-      { 
-        id: 'task-2', 
-        task_type: 'Review Analysis', 
-        source: 'trustpilot.com', 
-        status: 'In Progress', 
-        progress: 78, 
-        eta: '1 minute' 
-      },
-      { 
-        id: 'task-3', 
-        task_type: 'Social Media Scan', 
-        source: 'twitter.com', 
-        status: 'Starting', 
-        progress: 5, 
-        eta: '12 minutes' 
-      }
-    ]);
-  };
+  // Error handling and loading states are now managed directly in the fetchDashboardData function
 
   useEffect(() => {
     fetchDashboardData();

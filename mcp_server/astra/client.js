@@ -1,5 +1,5 @@
-const { Client } = require('cassandra-driver');
-const { OpenAIEmbeddings } = require('@langchain/openai');
+const { Client } = require('../../common/cassandra_stub');
+const { OpenAIEmbeddings } = require('../../common/openai_stub');
 
 /**
  * Client for interacting with DataStax Astra DB

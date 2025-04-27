@@ -101,24 +101,73 @@ class McpClient:
     
     async def create_edge(self, from_id: str, to_id: str, relation_type: str, 
                          weight: float = 1.0, properties: Dict = None) -> Dict:
-        """Create a graph edge."""
-        # This is a custom method - we'll implement this directly via Astra DB
-        # as it's not exposed as an MCP tool
-        
-        # In a real implementation, this would interact with the database
-        # For now, we'll just return a mock result
-        edge = {
-            "from": from_id,
-            "to": to_id,
-            "type": relation_type,
-            "weight": weight,
-            "properties": properties or {},
-            "created": True
-        }
-        
-        print(f"Created edge from {from_id} to {to_id} with type {relation_type}")
-        
-        return edge
+        """Create a graph edge between two nodes in Astra DB."""
+        async with aiohttp.ClientSession() as session:
+            # Use the Astra DB REST API to create a graph edge
+            astra_endpoint = os.getenv("ASTRA_API_ENDPOINT")
+            astra_token = os.getenv("ASTRA_TOKEN")
+            keyspace = os.getenv("ASTRA_KEYSPACE", "voc_platform")
+            
+            if not astra_endpoint or not astra_token:
+                raise Exception("ASTRA_API_ENDPOINT or ASTRA_TOKEN not set")
+            
+            # Construct the GraphQL endpoint URL
+            graphql_url = f"{astra_endpoint}/api/graphql/{keyspace}"
+            
+            # Create the GraphQL mutation
+            # This assumes we have a schema with appropriate types and fields
+            mutation = {
+                "query": """
+                mutation CreateEdge($fromId: String!, $toId: String!, $relationType: String!, $weight: Float!, $properties: String!) {
+                    createEdge(fromId: $fromId, toId: $toId, relationType: $relationType, weight: $weight, properties: $properties) {
+                        fromId
+                        toId
+                        relationType
+                        weight
+                        created
+                    }
+                }
+                """,
+                "variables": {
+                    "fromId": from_id,
+                    "toId": to_id,
+                    "relationType": relation_type,
+                    "weight": weight,
+                    "properties": json.dumps(properties or {})
+                }
+            }
+            
+            headers = {
+                "X-Cassandra-Token": astra_token,
+                "Content-Type": "application/json"
+            }
+            
+            try:
+                async with session.post(graphql_url, json=mutation, headers=headers) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if "errors" in result:
+                            print(f"GraphQL errors: {result['errors']}")
+                            raise Exception(f"GraphQL errors: {result['errors']}")
+                            
+                        edge_data = result.get("data", {}).get("createEdge", {})
+                        edge = {
+                            "from": from_id,
+                            "to": to_id,
+                            "type": relation_type,
+                            "weight": weight,
+                            "properties": properties or {},
+                            "created": True
+                        }
+                        
+                        print(f"Created edge from {from_id} to {to_id} with type {relation_type}")
+                        return edge
+                    else:
+                        error_text = await response.text()
+                        raise Exception(f"Create edge failed: {response.status} - {error_text}")
+            except Exception as e:
+                print(f"Error creating edge: {str(e)}")
+                raise
     
     async def get_insight(self, insight_id: str) -> Dict:
         """Get an insight by ID."""

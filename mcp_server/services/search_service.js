@@ -1,4 +1,4 @@
-const { OpenAIEmbeddings } = require('@langchain/openai');
+const { OpenAIEmbeddings } = require('../../common/openai_stub');
 
 /**
  * Service for performing searches against the vector database
